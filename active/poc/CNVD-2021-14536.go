@@ -7,7 +7,7 @@ func (Info *PocInfo) CNVD_2021_14536_Init() {
 	poc.Info.ID = "CNVD-2021-14536"
 	poc.Info.Target = "ruijie"
 	poc.Info.Type = "INFO"
-	poc.Info.Name = "ruijie RG-UAC username and password INFO"
+	poc.Info.Name = "Ruijie RG-UAC username and password INFO"
 	poc.Info.Level = 1
 	poc.Info.Author = "youzai"
 
