@@ -125,8 +125,12 @@ func PocInit() { // 用于保存方法名
 
 // 扫描入口
 func Scan() {
-	if xss_poc_all, ok := poc.PocMap["XSS"]; ok {
-		XSS_Check(xss_poc_all, Target.Timeout, Target.Proxy, Target.Proxy_Url)
+	// if xss_poc_all, ok := poc.PocMap["XSS"]; ok {
+	// 	XSS_Check(xss_poc_all, Target.Timeout, Target.Proxy, Target.Proxy_Url)
+	// }
+
+	if info_poc_all, ok := poc.PocMap["INFO"]; ok {
+		INFO_Check(info_poc_all, Target.Timeout, Target.Proxy, Target.Proxy_Url)
 	}
 }
 
