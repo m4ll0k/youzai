@@ -29,9 +29,8 @@ func banner() {
 	     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝	                                                
 	`}
 	color.Blueln(banner[0])
-	color.Greenp("Version：v 1.0")
-	color.Cyanln("\t\t\t\t\t\t", "By youzai")
-	color.Redln("Scan Results Info")
+	color.Magenta.Print("Version：v 1.0")
+	color.Cyanln("\t\t\t\t\t\t", "By youzai\n")
 }
 
 // 生成目标信息
@@ -57,9 +56,5 @@ func main() {
 	banner()
 	target_Info()
 	active_Check()
-	if len(active.Target.Vulns) == 0 {
-		color.Blueln("暂无发现漏洞")
-	} else {
-		report.OutTable()
-	}
+	report.OutTable()
 }

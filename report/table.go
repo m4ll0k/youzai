@@ -10,6 +10,14 @@ import (
 // 用于表格输出的函数，调用前需判断漏洞信息是否为空
 func OutTable() {
 	signs := []string{`+`, `-`, `|`} // 表格输出符号
+	green := color.FgGreen.Render
+	red := color.FgRed.Render
+	blue := color.FgBlue.Render
+
+	if len(active.Target.Vulns) == 0 {
+		color.Println(green("[INFO]"), blue("暂无发现漏洞"))
+		return
+	}
 
 	// 计算漏洞url最大的长度
 	target_url_length := func() int {
@@ -69,6 +77,8 @@ func OutTable() {
 	line := func() {
 		color.Yellowln(signs[0], strings.Repeat(signs[1], target_url_length), signs[0], strings.Repeat(signs[1], target_vuln_name_length), signs[0], strings.Repeat(signs[1], target_vuln_id_length), signs[0], strings.Repeat(signs[1], target_vuln_level_length), signs[0])
 	}
+
+	color.Println(green("[INFO]"), red("Scan Results Info"))
 
 	line()
 
