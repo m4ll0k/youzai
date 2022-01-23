@@ -2,10 +2,13 @@ package active
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"reflect"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 	"youzai/active/poc"
@@ -24,6 +27,8 @@ type Target_Info struct {
 }
 
 var Target = &Target_Info{} // 实例化用于存储扫描结果的对象
+
+var Scan_Num float64 = 0
 
 // 此函数适用于安全性
 // 此函数用于生成所有poc
@@ -51,10 +56,17 @@ func Scanning() {
 	Scanning := []string{" scanning |", " Scanning /", " sCanning -", " scAnning \\", " scaNning |", " scanNing /", " scannIng -", " scanniNg \\", " scanninG |", " scanning /", " scanning -", " scanning \\"}
 	green := color.FgGreen.Render
 	blue := color.FgBlue.Render
+	yello := color.FgYellow.Render
 	for {
 		for i := 0; i < len(Scanning); i++ {
-			color.Blue.Print(green("[INFO]"), blue(Scanning[i]), "\r")
+			numtemp, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", float64(Scan_Num)/float64(len(poc.PocStruct))), 64)
+			num := int(numtemp * 50)
+			color.Print(green("[INFO]"), blue(Scanning[i]), yello("   ["), strings.Repeat("=", num), strings.Repeat(" ", 50-num), yello("]   "), int(numtemp*100), "%", "\r")
 			time.Sleep(time.Millisecond * 100)
+			if num == 50 {
+				color.Println(green("[INFO]"), blue("Scan Finish"))
+				runtime.Goexit()
+			}
 		}
 	}
 }
@@ -276,6 +288,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 				return
 			}
 		}
+		Scan_Num++
 	}
 }
 
@@ -374,5 +387,6 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 				return
 			}
 		}
+		Scan_Num++
 	}
 }

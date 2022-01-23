@@ -1,6 +1,7 @@
 package main
 
 import (
+	"time"
 	"youzai/active"
 	"youzai/report"
 
@@ -35,14 +36,14 @@ func banner() {
 
 // 生成目标信息
 func target_Info() {
-	url := "http://localhost/wordpress"
+	url := "http://192.168.43.94/wordpress"
 	userAgent := "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.163 Safari/535.1"
 
 	active.Target.Target_Url = url
 	active.Target.User_Agent = userAgent
 	active.Target.Timeout = 5
-	active.Target.Proxy = true
-	active.Target.Proxy_Url = "http://127.0.0.1:8888"
+	active.Target.Proxy = false
+	active.Target.Proxy_Url = ""
 }
 
 // 执行扫描
@@ -56,5 +57,6 @@ func main() {
 	banner()
 	target_Info()
 	active_Check()
+	time.Sleep(time.Second * 1)
 	report.OutTable()
 }
