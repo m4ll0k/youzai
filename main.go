@@ -1,7 +1,6 @@
 package main
 
 import (
-	"time"
 	"youzai/active"
 	"youzai/report"
 
@@ -29,21 +28,22 @@ func banner() {
 	     ██║   ╚██████╔╝╚██████╔╝███████╗██║  ██║██║
 	     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝	                                                
 	`}
-	color.Blueln(banner[0])
+	color.Blueln(banner[1])
 	color.Magenta.Print("Version：v 1.0")
 	color.Cyanln("\t\t\t\t\t\t", "By youzai\n")
 }
 
 // 生成目标信息
 func target_Info() {
-	url := "http://192.168.43.94/wordpress"
+	url := "http://169.256.1.1/wordpress"
 	userAgent := "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.163 Safari/535.1"
 
 	active.Target.Target_Url = url
 	active.Target.User_Agent = userAgent
-	active.Target.Timeout = 5
+	active.Target.Timeout = 1
 	active.Target.Proxy = false
 	active.Target.Proxy_Url = ""
+	active.Target.Speed = 2
 }
 
 // 执行扫描
@@ -57,6 +57,5 @@ func main() {
 	banner()
 	target_Info()
 	active_Check()
-	time.Sleep(time.Second * 1)
 	report.OutTable()
 }

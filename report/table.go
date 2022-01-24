@@ -13,9 +13,11 @@ func OutTable() {
 	green := color.FgGreen.Render
 	red := color.FgRed.Render
 	blue := color.FgBlue.Render
+	yellow := color.FgYellow.Render
+	magenta := color.FgMagenta.Render
 
 	if len(active.Target.Vulns) == 0 {
-		color.Println(green("[INFO]"), blue("暂无发现漏洞"))
+		color.Println(green("[INFO]"), blue("None Vulnerabilities Find"))
 		return
 	}
 
@@ -87,10 +89,24 @@ func OutTable() {
 	line()
 
 	for _, poc := range active.Target.Vulns {
+		level := poc.Info.Level
+		var level_info string
+		switch level {
+		case 0:
+			level_info = "<fg=FF0000>Critical</>"
 
+		case 1:
+			level_info = "<fg=FFA500>High</>"
+
+		case 2:
+			level_info = "<fg=00FF00>Medium</>"
+
+		case 3:
+			level_info = "<fg=808080>Low</>"
+		}
 		// 打印漏洞信息
 		func() {
-			color.Yellowln(signs[2], active.Target.Target_Url, strings.Repeat(" ", target_url_length-(len(active.Target.Target_Url)+1)), signs[2], poc.Info.Name, strings.Repeat(" ", target_vuln_name_length-(len(poc.Info.Name)+1)), signs[2], poc.Info.ID, strings.Repeat(" ", target_vuln_id_length-(len(poc.Info.ID)+1)), signs[2], poc.Info.Level, strings.Repeat(" ", target_vuln_level_length-2), signs[2])
+			color.Println(yellow(signs[2]), green(active.Target.Target_Url), strings.Repeat(" ", target_url_length-(len(active.Target.Target_Url)+1)), yellow(signs[2]), green(poc.Info.Name), strings.Repeat(" ", target_vuln_name_length-(len(poc.Info.Name)+1)), yellow(signs[2]), magenta(poc.Info.ID), strings.Repeat(" ", target_vuln_id_length-(len(poc.Info.ID)+1)), yellow(signs[2]), level_info, strings.Repeat(" ", target_vuln_level_length+13-len(level_info)), yellow(signs[2]))
 		}()
 		line()
 	}

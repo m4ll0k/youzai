@@ -4,12 +4,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/url"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"youzai/active/poc"
 
@@ -23,12 +24,13 @@ type Target_Info struct {
 	Timeout    int           // 请求的超时时间
 	Proxy      bool          // 是否使用代理
 	Proxy_Url  string        // 代理的url
+	Speed      int           //扫描的速度 [1]慢 [2]中等 [3]快 [4]最高
 	Vulns      []poc.PocInfo // 存放漏洞信息
 }
 
 var Target = &Target_Info{} // 实例化用于存储扫描结果的对象
 
-var Scan_Num float64 = 0
+var Scan_Num float64 = 0 // 用于进度条计数
 
 // 此函数适用于安全性
 // 此函数用于生成所有poc
@@ -52,20 +54,31 @@ var Scan_Num float64 = 0
 // }
 
 // 扫描提示语
-func Scanning() {
+func Scanning(wg *sync.WaitGroup) {
+	before := time.Now().Unix()
 	Scanning := []string{" scanning |", " Scanning /", " sCanning -", " scAnning \\", " scaNning |", " scanNing /", " scannIng -", " scanniNg \\", " scanninG |", " scanning /", " scanning -", " scanning \\"}
 	green := color.FgGreen.Render
 	blue := color.FgBlue.Render
-	yello := color.FgYellow.Render
+	yellow := color.FgYellow.Render
+	is_Stop := false
 	for {
+		if is_Stop {
+			wg.Done()
+			break
+		}
 		for i := 0; i < len(Scanning); i++ {
 			numtemp, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", float64(Scan_Num)/float64(len(poc.PocStruct))), 64)
 			num := int(numtemp * 50)
-			color.Print(green("[INFO]"), blue(Scanning[i]), yello("   ["), strings.Repeat("=", num), strings.Repeat(" ", 50-num), yello("]   "), int(numtemp*100), "%", "\r")
+			color.Print(green("[INFO]"), blue(Scanning[i]), yellow("   ["), strings.Repeat("=", num), strings.Repeat(" ", 50-num), yellow("]  "), int(numtemp*100), "%", "\r")
 			time.Sleep(time.Millisecond * 100)
 			if num == 50 {
 				color.Println(green("[INFO]"), blue("Scan Finish"))
-				runtime.Goexit()
+				after := time.Now().Unix()
+				time.Sleep(time.Millisecond * 1000)
+				color.Println(green("[INFO]"), yellow("Total Time"), after-before, yellow("Seconds"))
+				time.Sleep(time.Millisecond * 1000)
+				is_Stop = true
+				break
 			}
 		}
 	}
@@ -73,7 +86,7 @@ func Scanning() {
 
 // 此函数适用于快捷性
 // 此函数用于生成所有poc
-func PocInit() { // 用于保存方法名
+func PocInit() {
 	// 设置自定义poc的配置
 	func() {
 		poc.PocCustomize.Config.Url = Target.Target_Url
@@ -165,20 +178,82 @@ func PocInit() { // 用于保存方法名
 		Vuln_Level_Info.Medium_Risk = m_vuln
 		Vuln_Level_Info.High_Risk = h_vuln
 		Vuln_Level_Info.Critical = c_vuln
-		color.Println(green("[INFO]"), gary("Low•", Vuln_Level_Info.Low_Risk), green("\t\tMedium•", Vuln_Level_Info.Low_Risk), blue("\t\tHigh•", Vuln_Level_Info.Medium_Risk), red("\t\tCritical•", Vuln_Level_Info.Critical))
+		color.Println(green("[INFO]"), gary("Low•", Vuln_Level_Info.Low_Risk), green("\t\tMedium•", Vuln_Level_Info.Medium_Risk), blue("\t\tHigh•", Vuln_Level_Info.High_Risk), red("\t\tCritical•", Vuln_Level_Info.Critical))
+		time.Sleep(time.Second * 1)
 	}()
 }
 
 // 扫描入口
 func Scan() {
-	go Scanning()
+	threads := 1
+	switch Target.Speed {
+	case 1:
+		threads = 1
+
+	case 2:
+		threads = 5
+
+	case 3:
+		threads = 10
+
+	case 4:
+		threads = 20
+
+	default:
+		threads = 1
+	}
+
+	poc_Array := func(poc_all []poc.PocInfo) [][]poc.PocInfo {
+		i := 0                        // 用于读取计数
+		scan_thread := 1              // 扫描的线程
+		poc_list := [][]poc.PocInfo{} // poc分组
+		temp := []poc.PocInfo{}       //临时存储各个分组的poc
+		if len(poc_all) <= threads {
+			scan_thread = len(poc_all)
+		} else {
+			scan_thread = threads
+		}
+		one_thread_num := int(math.Ceil(float64(len(poc_all)) / float64(scan_thread)))
+		for _, poc_temp := range poc_all {
+			i++
+			if i%one_thread_num == 0 {
+				temp = append(temp, poc_temp)
+				poc_list = append(poc_list, temp)
+				temp = []poc.PocInfo{}
+			} else if i == len(poc_all) {
+				temp = append(temp, poc_temp)
+				poc_list = append(poc_list, temp)
+			} else {
+				temp = append(temp, poc_temp)
+			}
+		}
+		return poc_list // 返回线程列表
+	}
+
+	wg := sync.WaitGroup{} // 用于等待协程
+	num_m := sync.Mutex{}  // 用于同步已扫描的漏洞数
+	vuln_m := sync.Mutex{} // 用于同步目标的漏洞数
+
+	wg.Add(1)
+	go Scanning(&wg)
+
 	if xss_poc_all, ok := poc.PocMap["XSS"]; ok {
-		XSS_Check(xss_poc_all, Target.Timeout, Target.Proxy, Target.Proxy_Url)
+		poc_list := poc_Array(xss_poc_all)
+		for _, xss_poc_list := range poc_list {
+			wg.Add(1)
+			go XSS_Check(xss_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
+		}
 	}
 
 	if info_poc_all, ok := poc.PocMap["INFO"]; ok {
-		INFO_Check(info_poc_all, Target.Timeout, Target.Proxy, Target.Proxy_Url)
+		poc_list := poc_Array(info_poc_all)
+		for _, info_poc_list := range poc_list {
+			wg.Add(1)
+			go INFO_Check(info_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
+		}
 	}
+
+	wg.Wait() // 等待协程结束
 }
 
 // 生成http客户端
@@ -203,11 +278,12 @@ func Http_Client(timeout int, proxy bool, proxy_url string) *http.Client {
 			return http.ErrUseLastResponse
 		},
 	}
+
 	return cli
 }
 
 // XSS检测函数
-func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url string) { // 第一个参数设置请求超时时间，第二个参数设置是否使用代理，第三个参数设置代理的url
+func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url string, wg *sync.WaitGroup, num_m *sync.Mutex, vuln_m *sync.Mutex) { // 第一个参数设置请求超时时间，第二个参数设置是否使用代理，第三个参数设置代理的url
 	// fmt.Println("加载的XSS检测poc数量：", len(xss_poc_all))
 
 	cli := Http_Client(timeout, proxy, proxy_url)
@@ -216,7 +292,9 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 		if xss_poc.Config.Customize { //判断是否是自定义poc
 			check := xss_poc.Config.Check
 			if check() {
+				vuln_m.Lock()
 				Target.Vulns = append(Target.Vulns, xss_poc)
+				vuln_m.Unlock()
 			}
 		} else { // 模板poc检测规则
 			if xss_poc.Poc.Method == "GET" { // GET方法
@@ -243,7 +321,9 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 						}
 
 						if strings.Contains(string(body), word) {
+							vuln_m.Lock()
 							Target.Vulns = append(Target.Vulns, xss_poc)
+							vuln_m.Unlock()
 						} else {
 							continue
 						}
@@ -278,7 +358,9 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 							word = xss_poc.Poc.Word[i]
 						}
 						if strings.Contains(string(body), word) {
+							vuln_m.Lock()
 							Target.Vulns = append(Target.Vulns, xss_poc)
+							vuln_m.Unlock()
 						} else {
 							continue
 						}
@@ -288,12 +370,15 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 				return
 			}
 		}
+		num_m.Lock()
 		Scan_Num++
+		num_m.Unlock()
 	}
+	wg.Done()
 }
 
 // INFO检测函数
-func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url string) {
+func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url string, wg *sync.WaitGroup, num_m *sync.Mutex, vuln_m *sync.Mutex) {
 	// fmt.Println("加载的INFO检测poc数量：", len(info_poc_all))
 
 	cli := Http_Client(timeout, proxy, proxy_url)
@@ -302,7 +387,9 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 		if info_poc.Config.Customize {
 			check := info_poc.Config.Check
 			if check() {
+				vuln_m.Lock()
 				Target.Vulns = append(Target.Vulns, info_poc)
+				vuln_m.Unlock()
 			}
 		} else {
 			if info_poc.Poc.Method == "GET" { // GET方法
@@ -326,14 +413,18 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 						if len(info_poc.Poc.Word) == 1 {
 							word := info_poc.Poc.Word[0]
 							if strings.Contains(string(body), word) {
+								vuln_m.Lock()
 								Target.Vulns = append(Target.Vulns, info_poc)
+								vuln_m.Unlock()
 							} else {
 								continue
 							}
 						} else {
 							for _, word := range info_poc.Poc.Word {
 								if strings.Contains(string(body), word) {
+									vuln_m.Lock()
 									Target.Vulns = append(Target.Vulns, info_poc)
+									vuln_m.Unlock()
 								} else {
 									continue
 								}
@@ -368,14 +459,18 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 						if len(info_poc.Poc.Word) == 1 {
 							word := info_poc.Poc.Word[0]
 							if strings.Contains(string(body), word) {
+								vuln_m.Lock()
 								Target.Vulns = append(Target.Vulns, info_poc)
+								vuln_m.Unlock()
 							} else {
 								continue
 							}
 						} else {
 							for _, word := range info_poc.Poc.Word {
 								if strings.Contains(string(body), word) {
+									vuln_m.Lock()
 									Target.Vulns = append(Target.Vulns, info_poc)
+									vuln_m.Unlock()
 								} else {
 									continue
 								}
@@ -387,6 +482,9 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 				return
 			}
 		}
+		num_m.Lock()
 		Scan_Num++
+		num_m.Unlock()
 	}
+	wg.Done()
 }
