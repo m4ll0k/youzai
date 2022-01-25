@@ -18,7 +18,7 @@ func OutTable() {
 	magenta := color.FgMagenta.Render
 
 	if len(active.Target.Vulns) == 0 {
-		color.Println(green("[INFO]"), blue("None Vulnerabilities Find"))
+		color.Println(green("[INFO]"), blue("No Vulnerabilities Find"))
 		return
 	}
 
@@ -82,7 +82,7 @@ func OutTable() {
 	}
 
 	color.Println(green("[INFO]"), red("Scan Results Info"))
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Millisecond * 500)
 
 	line()
 
@@ -90,7 +90,7 @@ func OutTable() {
 
 	line()
 
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Millisecond * 500)
 
 	for _, poc := range active.Target.Vulns {
 		level := poc.Info.Level

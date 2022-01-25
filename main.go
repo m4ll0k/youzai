@@ -41,8 +41,8 @@ func target_Info() {
 	active.Target.Target_Url = url
 	active.Target.User_Agent = userAgent
 	active.Target.Timeout = 5
-	active.Target.Proxy = true
-	active.Target.Proxy_Url = "http://127.0.0.1:8888"
+	active.Target.Proxy = false
+	active.Target.Proxy_Url = ""
 	active.Target.Speed = 1
 }
 
