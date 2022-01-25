@@ -155,6 +155,7 @@ func PocInit() {
 		green := color.Green.Render
 		blue := color.Blue.Render
 		red := color.Red.Render
+		cyan := color.FgCyan.Render
 		for _, pocStruct := range poc.PocStruct {
 			var level = pocStruct.Info.Level
 			switch level {
@@ -178,7 +179,7 @@ func PocInit() {
 		Vuln_Level_Info.Medium_Risk = m_vuln
 		Vuln_Level_Info.High_Risk = h_vuln
 		Vuln_Level_Info.Critical = c_vuln
-		color.Println(green("[INFO]"), gary("Low•", Vuln_Level_Info.Low_Risk), green("\t\tMedium•", Vuln_Level_Info.Medium_Risk), blue("\t\tHigh•", Vuln_Level_Info.High_Risk), red("\t\tCritical•", Vuln_Level_Info.Critical))
+		color.Println(green("[INFO]"), cyan("POC Total Tips ["), gary("Low•", Vuln_Level_Info.Low_Risk), green("      Medium•", Vuln_Level_Info.Medium_Risk), blue("      High•", Vuln_Level_Info.High_Risk), red("      Critical•", Vuln_Level_Info.Critical), cyan("]"))
 		time.Sleep(time.Second * 1)
 	}()
 }
