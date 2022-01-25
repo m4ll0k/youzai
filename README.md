@@ -5,8 +5,6 @@
 ## 开发日志
 `2022/1/17`  
 > 测试xss功能  
-运行效果截图：
-![image](https://user-images.githubusercontent.com/62203483/149745190-d68d3aa8-9010-4b4a-a7fe-9d64a612f7b3.png)
 
 `2022/1/19`  
 > 优化代码结构，加入自定义poc模板(CVE-2017-12794)
@@ -18,5 +16,5 @@
 `2022/1/24`  
 > 添加多个poc  
 > 添加多线程运行  
-> 最新运行截图：  
-> ![image](https://user-images.githubusercontent.com/62203483/151006850-6c415ef7-062f-49ac-9261-8b00f8502290.png)
+> 最新运行图：  
+> 
