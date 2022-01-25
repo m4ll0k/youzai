@@ -35,15 +35,15 @@ func banner() {
 
 // 生成目标信息
 func target_Info() {
-	url := "http://169.256.1.1/wordpress"
+	url := "http://localhost/wordpress"
 	userAgent := "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.163 Safari/535.1"
 
 	active.Target.Target_Url = url
 	active.Target.User_Agent = userAgent
-	active.Target.Timeout = 1
-	active.Target.Proxy = false
-	active.Target.Proxy_Url = ""
-	active.Target.Speed = 2
+	active.Target.Timeout = 5
+	active.Target.Proxy = true
+	active.Target.Proxy_Url = "http://127.0.0.1:8888"
+	active.Target.Speed = 1
 }
 
 // 执行扫描

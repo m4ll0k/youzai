@@ -2,6 +2,7 @@ package report
 
 import (
 	"strings"
+	"time"
 	"youzai/active"
 
 	"github.com/gookit/color"
@@ -13,7 +14,7 @@ func OutTable() {
 	green := color.FgGreen.Render
 	red := color.FgRed.Render
 	blue := color.FgBlue.Render
-	yellow := color.FgYellow.Render
+	cyan := color.FgCyan.Render
 	magenta := color.FgMagenta.Render
 
 	if len(active.Target.Vulns) == 0 {
@@ -77,16 +78,19 @@ func OutTable() {
 
 	// 打印边界线
 	line := func() {
-		color.Yellowln(signs[0], strings.Repeat(signs[1], target_url_length), signs[0], strings.Repeat(signs[1], target_vuln_name_length), signs[0], strings.Repeat(signs[1], target_vuln_id_length), signs[0], strings.Repeat(signs[1], target_vuln_level_length), signs[0])
+		color.Cyanln(signs[0], strings.Repeat(signs[1], target_url_length), signs[0], strings.Repeat(signs[1], target_vuln_name_length), signs[0], strings.Repeat(signs[1], target_vuln_id_length), signs[0], strings.Repeat(signs[1], target_vuln_level_length), signs[0])
 	}
 
 	color.Println(green("[INFO]"), red("Scan Results Info"))
+	time.Sleep(time.Second * 1)
 
 	line()
 
-	color.Yellowln(signs[2], "Target_Url", strings.Repeat(" ", target_url_length-11), signs[2], "Vuln_Name", strings.Repeat(" ", target_vuln_name_length-10), signs[2], "Vuln_ID", strings.Repeat(" ", target_vuln_id_length-8), signs[2], "Vuln_Level", strings.Repeat(" ", target_vuln_level_length-11), signs[2])
+	color.Cyanln(signs[2], "Target_Url", strings.Repeat(" ", target_url_length-11), signs[2], "Vuln_Name", strings.Repeat(" ", target_vuln_name_length-10), signs[2], "Vuln_ID", strings.Repeat(" ", target_vuln_id_length-8), signs[2], "Vuln_Level", strings.Repeat(" ", target_vuln_level_length-11), signs[2])
 
 	line()
+
+	time.Sleep(time.Millisecond * 200)
 
 	for _, poc := range active.Target.Vulns {
 		level := poc.Info.Level
@@ -106,8 +110,9 @@ func OutTable() {
 		}
 		// 打印漏洞信息
 		func() {
-			color.Println(yellow(signs[2]), green(active.Target.Target_Url), strings.Repeat(" ", target_url_length-(len(active.Target.Target_Url)+1)), yellow(signs[2]), green(poc.Info.Name), strings.Repeat(" ", target_vuln_name_length-(len(poc.Info.Name)+1)), yellow(signs[2]), magenta(poc.Info.ID), strings.Repeat(" ", target_vuln_id_length-(len(poc.Info.ID)+1)), yellow(signs[2]), level_info, strings.Repeat(" ", target_vuln_level_length+13-len(level_info)), yellow(signs[2]))
+			color.Println(cyan(signs[2]), green(active.Target.Target_Url), strings.Repeat(" ", target_url_length-(len(active.Target.Target_Url)+1)), cyan(signs[2]), green(poc.Info.Name), strings.Repeat(" ", target_vuln_name_length-(len(poc.Info.Name)+1)), cyan(signs[2]), magenta(poc.Info.ID), strings.Repeat(" ", target_vuln_id_length-(len(poc.Info.ID)+1)), cyan(signs[2]), level_info, strings.Repeat(" ", target_vuln_level_length+13-len(level_info)), cyan(signs[2]))
 		}()
 		line()
+		time.Sleep(time.Millisecond * 200)
 	}
 }
