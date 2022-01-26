@@ -69,7 +69,7 @@ func Scanning(wg *sync.WaitGroup) {
 		for i := 0; i < len(Scanning); i++ {
 			numtemp, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", float64(Scan_Num)/float64(len(poc.PocStruct))), 64)
 			num := int(numtemp * 50)
-			color.Print(green("[INFO]"), blue(Scanning[i]), yellow("   ["), strings.Repeat("=", num), strings.Repeat(" ", 50-num), yellow("]  "), int(numtemp*100), "%", "\r")
+			color.Print(green("[INFO]"), blue(Scanning[i]), yellow("  ["), strings.Repeat("=", num), strings.Repeat(" ", 50-num), yellow("]  "), int(numtemp*100), "%", "\r")
 			time.Sleep(time.Millisecond * 100)
 			if num == 50 {
 				after := time.Now().Unix()
