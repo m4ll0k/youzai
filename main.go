@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os/exec"
+	"time"
 	"youzai/active"
 	"youzai/report"
 
@@ -54,6 +56,10 @@ func active_Check() {
 
 // 扫描器入口
 func main() {
+	cmd2 := exec.Command("powershell", "mode con cols=135 lines=40")
+	cmd2.Run()
+	time.Sleep(time.Second)
+
 	banner()
 	target_Info()
 	active_Check()
