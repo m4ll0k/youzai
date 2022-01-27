@@ -11,7 +11,7 @@
 > 添加多个poc  
 > 添加多线程运行  
 > 最新运行图：  
-> ![image](https://github.com/qian-shen/youzai/blob/main/test.gif)  
+> ![image](https://github.com/qian-shen/youzai/blob/main/youzai.gif)  
 
 `2022/1/21`  
 > 添加xss漏洞检测poc  
