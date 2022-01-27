@@ -41,7 +41,7 @@ func banner_Info() {
 
 // 生成目标信息
 func target_Info() {
-	url := "http://localhost/wordpress"
+	url := "http://192.168.65.129:8080"
 	userAgent := "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.163 Safari/535.1"
 
 	active.Target.Target_Url = url
@@ -50,6 +50,8 @@ func target_Info() {
 	active.Target.Proxy = true
 	active.Target.Proxy_Url = "http://127.0.0.1:8888"
 	active.Target.Speed = 1
+	active.Target.Ceye_Url = "rp7vj6.ceye.io"
+	active.Target.Ceye_Token = "9f5824c076d1a459e31266e8b016b591"
 }
 
 // 执行扫描

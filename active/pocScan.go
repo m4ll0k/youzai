@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -25,12 +26,38 @@ type Target_Info struct {
 	Proxy      bool          // 是否使用代理
 	Proxy_Url  string        // 代理的url
 	Speed      int           //扫描的速度 [1]慢 [2]中等 [3]快 [4]最高
+	Ceye_Url   string        // ceye的地址
+	Ceye_Token string        // 用于请求的token
 	Vulns      []poc.PocInfo // 存放漏洞信息
 }
 
 var Target = &Target_Info{} // 实例化用于存储扫描结果的对象
 
 var Scan_Num float64 = 0 // 用于进度条计数
+
+var Scan_Num_True int = 0 // 用于计算真实扫描的poc数量
+
+// 用于检测ssrf的函数
+func Ceye_Check(randstr string) bool {
+	cli := Http_Client(Target.Timeout, Target.Proxy, Target.Proxy_Url)
+
+	check_url := fmt.Sprintf("http://api.ceye.io/v1/records?token=%s&type=dns&filter=%s", Target.Ceye_Token, randstr)
+	request, err := http.NewRequest("GET", check_url, nil)
+	if err != nil {
+		return false
+	}
+
+	if response, err := cli.Do(request); err != nil {
+		return false
+	} else {
+		defer response.Body.Close()
+		body, _ := ioutil.ReadAll(response.Body)
+		if strings.Contains(string(body), randstr) {
+			return true
+		}
+	}
+	return false
+}
 
 // 此函数适用于安全性
 // 此函数用于生成所有poc
@@ -67,7 +94,7 @@ func Scanning(wg *sync.WaitGroup) {
 			break
 		}
 		for i := 0; i < len(Scanning); i++ {
-			numtemp, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", float64(Scan_Num)/float64(len(poc.PocStruct))), 64)
+			numtemp, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", float64(Scan_Num)/float64(Scan_Num_True)), 64)
 			num := int(numtemp * 50)
 			color.Print(green("[INFO]"), blue(Scanning[i]), yellow("  ["), strings.Repeat("=", num), strings.Repeat(" ", 50-num), yellow("]  "), int(numtemp*100), "%", "\r")
 			time.Sleep(time.Millisecond * 100)
@@ -235,11 +262,10 @@ func Scan() {
 	num_m := sync.Mutex{}  // 用于同步已扫描的漏洞数
 	vuln_m := sync.Mutex{} // 用于同步目标的漏洞数
 
-	wg.Add(1)
-	go Scanning(&wg)
-
+	// 开始扫描
 	if xss_poc_all, ok := poc.PocMap["XSS"]; ok {
 		poc_list := poc_Array(xss_poc_all)
+		Scan_Num_True = Scan_Num_True + len(xss_poc_all)
 		for _, xss_poc_list := range poc_list {
 			wg.Add(1)
 			go XSS_Check(xss_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
@@ -247,12 +273,26 @@ func Scan() {
 	}
 
 	if info_poc_all, ok := poc.PocMap["INFO"]; ok {
+		Scan_Num_True = Scan_Num_True + len(info_poc_all)
 		poc_list := poc_Array(info_poc_all)
 		for _, info_poc_list := range poc_list {
 			wg.Add(1)
 			go INFO_Check(info_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
 		}
 	}
+
+	if ssrf_poc_all, ok := poc.PocMap["SSRF"]; ok {
+		Scan_Num_True = Scan_Num_True + len(ssrf_poc_all)
+		poc_list := poc_Array(ssrf_poc_all)
+		for _, ssrf_poc_list := range poc_list {
+			wg.Add(1)
+			go SSRF_Check(ssrf_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
+		}
+	}
+	//fmt.Println("加载的poc数量是：", Scan_Num_True)
+
+	wg.Add(1)
+	go Scanning(&wg) // 开始进度条
 
 	wg.Wait() // 等待协程结束
 }
@@ -326,7 +366,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 							word = xss_poc.Poc.Word[i]
 						}
 
-						if strings.Contains(string(body), word) {
+						if response.StatusCode != 404 && strings.Contains(string(body), word) {
 							vuln_m.Lock()
 							Target.Vulns = append(Target.Vulns, xss_poc)
 							color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(xss_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
@@ -365,7 +405,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 						if len(xss_poc.Poc.Word) > 1 {
 							word = xss_poc.Poc.Word[i]
 						}
-						if strings.Contains(string(body), word) {
+						if response.StatusCode != 404 && strings.Contains(string(body), word) {
 							vuln_m.Lock()
 							Target.Vulns = append(Target.Vulns, xss_poc)
 							color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(xss_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
@@ -424,10 +464,8 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 					} else {
 						defer response.Body.Close()
 						body, _ := ioutil.ReadAll(response.Body)
-						// 判断是否有多个word
-						if len(info_poc.Poc.Word) == 1 {
-							word := info_poc.Poc.Word[0]
-							if strings.Contains(string(body), word) {
+						for _, word := range info_poc.Poc.Word {
+							if response.StatusCode != 404 && strings.Contains(string(body), word) {
 								vuln_m.Lock()
 								Target.Vulns = append(Target.Vulns, info_poc)
 								color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
@@ -435,18 +473,6 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 								break
 							} else {
 								continue
-							}
-						} else {
-							for _, word := range info_poc.Poc.Word {
-								if strings.Contains(string(body), word) {
-									vuln_m.Lock()
-									Target.Vulns = append(Target.Vulns, info_poc)
-									color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
-									vuln_m.Unlock()
-									break
-								} else {
-									continue
-								}
 							}
 						}
 					}
@@ -474,30 +500,113 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 					} else {
 						defer response.Body.Close()
 						body, _ := ioutil.ReadAll(response.Body)
-						// 判断是否有多个word
-						if len(info_poc.Poc.Word) == 1 {
-							word := info_poc.Poc.Word[0]
-							if strings.Contains(string(body), word) {
+						for _, word := range info_poc.Poc.Word {
+							if response.StatusCode != 404 && strings.Contains(string(body), word) {
 								vuln_m.Lock()
+								Target.Vulns = append(Target.Vulns, info_poc)
 								color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
-								fmt.Println("[INFO] hit some poc")
 								vuln_m.Unlock()
 								break
 							} else {
 								continue
 							}
+						}
+					}
+				}
+			} else {
+				return
+			}
+		}
+		num_m.Lock()
+		Scan_Num++
+		num_m.Unlock()
+	}
+	wg.Done()
+}
+
+// SSRF检测函数
+func SSRF_Check(ssrf_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url string, wg *sync.WaitGroup, num_m *sync.Mutex, vuln_m *sync.Mutex) {
+	// fmt.Println("加载的INFO检测poc数量：", len(info_poc_all))
+	green := color.FgGreen.Render
+	lightRed := color.FgLightRed.Render
+	lightCyan := color.FgLightCyan.Render
+	yellow := color.FgYellow.Render
+
+	rand.Seed(time.Now().UnixNano())
+	t := rand.Intn(100000)
+	randstr := fmt.Sprintf("%d", t)
+	ceye_url := randstr + "." + Target.Ceye_Url
+
+	cli := Http_Client(timeout, proxy, proxy_url)
+
+	for _, ssrf_poc := range ssrf_poc_all {
+		if ssrf_poc.Config.Customize {
+			check := ssrf_poc.Config.Check
+			if success, code := check(); success {
+				vuln_m.Lock()
+				Target.Vulns = append(Target.Vulns, ssrf_poc)
+				color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(ssrf_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(code), strings.Repeat(" ", 25))
+				vuln_m.Unlock()
+			}
+		} else {
+			if ssrf_poc.Poc.Method == "GET" { // GET方法
+				for _, path := range ssrf_poc.Poc.Path {
+					ssrf_url := strings.Replace(path, "{{SSRF_URL}}", ceye_url, -1)
+					request, err := http.NewRequest(ssrf_poc.Poc.Method, Target.Target_Url+ssrf_url, nil)
+					if err != nil {
+						continue
+					}
+					request.Header.Add("User-Agent", Target.User_Agent) // 设置User-Agent
+					if len(ssrf_poc.Poc.Header) != 0 {                  // 获取poc中的header
+						for header, value := range ssrf_poc.Poc.Header {
+							request.Header.Add(header, value)
+						}
+					}
+					if response, err := cli.Do(request); err != nil { // 发起http请求
+						continue
+					} else {
+						defer response.Body.Close()
+						if Ceye_Check(randstr) {
+							vuln_m.Lock()
+							Target.Vulns = append(Target.Vulns, ssrf_poc)
+							color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(ssrf_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
+							vuln_m.Unlock()
+							break
 						} else {
-							for _, word := range info_poc.Poc.Word {
-								if strings.Contains(string(body), word) {
-									vuln_m.Lock()
-									Target.Vulns = append(Target.Vulns, info_poc)
-									color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
-									vuln_m.Unlock()
-									break
-								} else {
-									continue
-								}
-							}
+							continue
+						}
+					}
+				}
+			} else if ssrf_poc.Poc.Method == "POST" { // POST方法
+				for i, path := range ssrf_poc.Poc.Path {
+					// 判断数据包是否多个
+					data := ssrf_poc.Poc.Data[0]
+					if len(ssrf_poc.Poc.Data) > 1 {
+						data = ssrf_poc.Poc.Data[i]
+					}
+					ssrf_data := strings.Replace(data, "{{SSRF_URL}}", ceye_url, -1)
+					request, err := http.NewRequest(ssrf_poc.Poc.Method, Target.Target_Url+path, strings.NewReader(ssrf_data))
+					if err != nil {
+						continue
+					}
+					request.Header.Add("User-Agent", Target.User_Agent) // 设置User-Agent
+					if len(ssrf_poc.Poc.Header) != 0 {                  // 获取poc中的header
+						for header, value := range ssrf_poc.Poc.Header {
+							request.Header.Add(header, value)
+						}
+					}
+					if response, err := cli.Do(request); err != nil { // 发起http请求
+						continue
+					} else {
+						defer response.Body.Close()
+						if Ceye_Check(randstr) {
+							vuln_m.Lock()
+							color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(ssrf_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
+							fmt.Println("[INFO] hit some poc")
+							vuln_m.Unlock()
+							break
+						} else {
+							continue
 						}
 					}
 				}
