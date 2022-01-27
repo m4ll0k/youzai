@@ -115,4 +115,8 @@ func OutTable() {
 		line()
 		time.Sleep(time.Millisecond * 200)
 	}
+
+	color.Println()
+	color.Println("<fg=00BFFF>[Tips]</>", "<fg=FFA500>The test results are only for reference</>")
+	color.Println("<fg=00BFFF>[Tips]</>", "<fg=FFA500>Please confirm manually in combination with the actual situation</>")
 }

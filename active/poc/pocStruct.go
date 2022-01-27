@@ -30,12 +30,12 @@ type PocInfo struct {
 	} `json:"poc"`
 	// poc配置
 	Config struct {
-		Customize  bool        `json:"customize"`  // 是否是自定义poc
-		Url        string      `json:"url"`        // 请求的url
-		Timeout    int         `json:"timeout"`    // 请求的超时时间
-		User_Agent string      `json:"user_agent"` // 请求的User_Agent信息
-		Proxy      bool        `json:"proxy"`      // 是否使用代理
-		Proxy_Url  string      `json:"proxy_url"`  // 代理的url
-		Check      func() bool `json:"check"`      // poc函数
+		Customize  bool               `json:"customize"`  // 是否是自定义poc
+		Url        string             `json:"url"`        // 请求的url
+		Timeout    int                `json:"timeout"`    // 请求的超时时间
+		User_Agent string             `json:"user_agent"` // 请求的User_Agent信息
+		Proxy      bool               `json:"proxy"`      // 是否使用代理
+		Proxy_Url  string             `json:"proxy_url"`  // 代理的url
+		Check      func() (bool, int) `json:"check"`      // poc函数
 	} `json:"config"`
 }

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"os/exec"
+	"runtime"
+	"strings"
 	"time"
 	"youzai/active"
 	"youzai/report"
@@ -9,7 +12,7 @@ import (
 	"github.com/gookit/color"
 )
 
-func banner() {
+func banner_Info() {
 	banner := []string{`
 	  ▓██   ██▓ ▒█████   █    ██ ▒███████▒ ▄▄▄       ██▓
 	   ▒██  ██▒▒██▒  ██▒ ██  ▓██▒▒ ▒ ▒ ▄▀░▒████▄    ▓██▒
@@ -33,6 +36,7 @@ func banner() {
 	color.Blueln(banner[1])
 	color.Magenta.Print("Version：v 1.0")
 	color.Cyanln("\t\t\t\t\t\t", "By youzai\n")
+	time.Sleep(time.Millisecond * 500)
 }
 
 // 生成目标信息
@@ -54,13 +58,33 @@ func active_Check() {
 	active.Scan()
 }
 
+func config_Screen() {
+	os := runtime.GOOS
+	green := color.Green.Render
+	blue := color.Blue.Render
+	if strings.Contains(os, "windows") {
+		cmd := exec.Command("powershell", "mode con cols=135 lines=40")
+		err := cmd.Run()
+		if err != nil {
+			time.Sleep(time.Second)
+			fmt.Println(green("[INFO]"), "Screen Config Failed")
+		}
+		time.Sleep(time.Second)
+		fmt.Println(green("[INFO]"), blue("Screen Config Successful"))
+		time.Sleep(time.Second)
+	}
+	fmt.Println(green("[INFO]"), blue("Prepare For Running The Scan"))
+	time.Sleep(time.Second)
+}
+
+func check_Network() {
+
+}
+
 // 扫描器入口
 func main() {
-	cmd2 := exec.Command("powershell", "mode con cols=135 lines=40")
-	cmd2.Run()
-	time.Sleep(time.Second)
-
-	banner()
+	config_Screen()
+	banner_Info()
 	target_Info()
 	active_Check()
 	report.OutTable()

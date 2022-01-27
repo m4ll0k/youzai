@@ -289,16 +289,17 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 	green := color.FgGreen.Render
 	lightRed := color.FgLightRed.Render
 	lightCyan := color.FgLightCyan.Render
+	yellow := color.FgYellow.Render
 
 	cli := Http_Client(timeout, proxy, proxy_url)
 
 	for _, xss_poc := range xss_poc_all {
 		if xss_poc.Config.Customize { //判断是否是自定义poc
 			check := xss_poc.Config.Check
-			if check() {
+			if success, code := check(); success {
 				vuln_m.Lock()
 				Target.Vulns = append(Target.Vulns, xss_poc)
-				color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(xss_poc.Info.Name), "}", strings.Repeat(" ", 30))
+				color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(xss_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(code), strings.Repeat(" ", 25))
 				vuln_m.Unlock()
 			}
 		} else { // 模板poc检测规则
@@ -328,7 +329,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 						if strings.Contains(string(body), word) {
 							vuln_m.Lock()
 							Target.Vulns = append(Target.Vulns, xss_poc)
-							color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(xss_poc.Info.Name), "}", strings.Repeat(" ", 30))
+							color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(xss_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
 							vuln_m.Unlock()
 							break
 						} else {
@@ -367,7 +368,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 						if strings.Contains(string(body), word) {
 							vuln_m.Lock()
 							Target.Vulns = append(Target.Vulns, xss_poc)
-							color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(xss_poc.Info.Name), "}", strings.Repeat(" ", 30))
+							color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(xss_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
 							vuln_m.Unlock()
 							break
 						} else {
@@ -392,16 +393,17 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 	green := color.FgGreen.Render
 	lightRed := color.FgLightRed.Render
 	lightCyan := color.FgLightCyan.Render
+	yellow := color.FgYellow.Render
 
 	cli := Http_Client(timeout, proxy, proxy_url)
 
 	for _, info_poc := range info_poc_all {
 		if info_poc.Config.Customize {
 			check := info_poc.Config.Check
-			if check() {
+			if success, code := check(); success {
 				vuln_m.Lock()
 				Target.Vulns = append(Target.Vulns, info_poc)
-				color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", strings.Repeat(" ", 30))
+				color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(code), strings.Repeat(" ", 25))
 				vuln_m.Unlock()
 			}
 		} else {
@@ -428,7 +430,7 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 							if strings.Contains(string(body), word) {
 								vuln_m.Lock()
 								Target.Vulns = append(Target.Vulns, info_poc)
-								color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", strings.Repeat(" ", 30))
+								color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
 								vuln_m.Unlock()
 								break
 							} else {
@@ -439,7 +441,7 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 								if strings.Contains(string(body), word) {
 									vuln_m.Lock()
 									Target.Vulns = append(Target.Vulns, info_poc)
-									color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", strings.Repeat(" ", 30))
+									color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
 									vuln_m.Unlock()
 									break
 								} else {
@@ -477,7 +479,7 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 							word := info_poc.Poc.Word[0]
 							if strings.Contains(string(body), word) {
 								vuln_m.Lock()
-								color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", strings.Repeat(" ", 30))
+								color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
 								fmt.Println("[INFO] hit some poc")
 								vuln_m.Unlock()
 								break
@@ -489,7 +491,7 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 								if strings.Contains(string(body), word) {
 									vuln_m.Lock()
 									Target.Vulns = append(Target.Vulns, info_poc)
-									color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", strings.Repeat(" ", 30))
+									color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(info_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
 									vuln_m.Unlock()
 									break
 								} else {
