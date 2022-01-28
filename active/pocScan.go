@@ -36,27 +36,6 @@ var Scan_Num float64 = 0 // 用于进度条计数
 
 var Scan_Num_True int = 0 // 用于计算真实扫描的poc数量
 
-// 此函数适用于安全性
-// 此函数用于生成所有poc
-// func PocInit() {
-// 	methodName := []string{}                // 用于保存方法名
-// 	pocStruct := &poc.PocInfo{}             // 实例化一个poc结构体，主要用于通过反射调用poc结构体内的方法
-// 	pocReflect := reflect.TypeOf(pocStruct) // 用于获取方法的数量、方法名
-
-// 	// 将方法名添加到数组中
-// 	for i := 0; i < pocReflect.NumMethod(); i++ {
-// 		method := pocReflect.Method(i) // 获取方法名
-// 		methodName = append(methodName, method.Name)
-// 	}
-
-// 	// 调用方法，生成poc
-// 	for _, pocName := range methodName {
-// 		if fun, bl := pocReflect.MethodByName(pocName); bl {
-// 			fun.Func.Call([]reflect.Value{reflect.ValueOf(pocStruct)}) // 调用方法生成poc
-// 		}
-// 	}
-// }
-
 // 扫描提示语
 func Scanning(wg *sync.WaitGroup) {
 	before := time.Now().Unix()
@@ -89,7 +68,6 @@ func Scanning(wg *sync.WaitGroup) {
 	}
 }
 
-// 此函数适用于快捷性
 // 此函数用于生成所有poc
 func PocInit() {
 	// 设置自定义poc的配置

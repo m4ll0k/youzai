@@ -86,8 +86,9 @@ func Net_Check(url string) bool {
 				color.Println(green("[INFO]"), "Connect Time:", yellow(link_time))
 				color.Println("<fg=FFA500>[WARNING]</>", "The link to the url doesn't seem well")
 				color.Println("<fg=FFA500>[WARNING]</>", "Please check your network")
+			} else {
+				color.Println(green("[INFO]"), "Connect Time:", yellow(link_time))
 			}
-			color.Println(green("[INFO]"), "Connect Time:", yellow(link_time))
 		},
 		GotFirstResponseByte: func() {
 			color.Println(green("[INFO]"), "Time from start to first byte:", yellow(time.Since(start)))

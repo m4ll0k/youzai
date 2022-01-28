@@ -104,6 +104,7 @@ func config_info() {
 		active.Target.Proxy_Url = *Proxy_Url
 	} else {
 		active.Target.Proxy = false
+		active.Target.Proxy_Url = ""
 	}
 	active.Target.Speed = *speed
 	active.Target.Ceye_Url = *ceye_url
