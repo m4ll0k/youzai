@@ -1,20 +1,18 @@
 package active
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"math/rand"
 	"net/http"
-	"net/http/httptrace"
-	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"youzai/active/poc"
+	"youzai/util"
 
 	"github.com/gookit/color"
 )
@@ -37,51 +35,6 @@ var Target = &Target_Info{} // 实例化用于存储扫描结果的对象
 var Scan_Num float64 = 0 // 用于进度条计数
 
 var Scan_Num_True int = 0 // 用于计算真实扫描的poc数量
-
-var Can_Scan = false
-
-// 检测网络连通性
-func Net_Check(url string) {
-	green := color.FgGreen.Render
-	red := color.FgRed.Render
-	yellow := color.FgYellow.Render
-	var connect, start time.Time
-
-	request, _ := http.NewRequest("GET", url, nil)
-	trace := &httptrace.ClientTrace{
-		ConnectStart: func(network, addr string) { connect = time.Now() },
-		ConnectDone: func(network, addr string, err error) {
-			link_time := time.Since(connect)
-			if link_time >= time.Duration(time.Second*10) {
-				color.Println(green("[INFO]"), "Connect Time:", yellow(link_time))
-				color.Println("<fg=FFA500>[WARNING]</>", "The link to the url doesn't seem well")
-				color.Println("<fg=FFA500>[WARNING]</>", "Please check your network")
-			}
-			color.Println(green("[INFO]"), "Connect Time:", yellow(link_time))
-		},
-		GotFirstResponseByte: func() {
-			color.Println(green("[INFO]"), "Time from start to first byte:", yellow(time.Since(start)))
-		},
-	}
-	req := request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
-	start = time.Now()
-	if _, err := http.DefaultTransport.RoundTrip(req); err != nil {
-		color.Println(red("[ERROR]"), err)
-		return
-	} else {
-		Can_Scan = true
-	}
-}
-
-// 用于检测ssrf的函数
-func Ceye_Check(randstr string) bool {
-	cli := Http_Client(Target.Timeout, Target.Proxy, Target.Proxy_Url)
-	check_url := fmt.Sprintf("http://api.ceye.io/v1/records?token=%s&type=dns&filter=%s", Target.Ceye_Token, randstr)
-	request, _ := http.NewRequest("GET", check_url, nil)
-	response, _ := cli.Do(request)
-	body, _ := ioutil.ReadAll(response.Body)
-	return strings.Contains(string(body), randstr)
-}
 
 // 此函数适用于安全性
 // 此函数用于生成所有poc
@@ -146,6 +99,15 @@ func PocInit() {
 		poc.PocCustomize.Config.Timeout = Target.Timeout
 		poc.PocCustomize.Config.Proxy = Target.Proxy
 		poc.PocCustomize.Config.Proxy_Url = Target.Proxy_Url
+	}()
+
+	// 设置工具类中的ceye信息
+	func() {
+		util.Ceye.Ceye_Url = Target.Ceye_Url
+		util.Ceye.Ceye_Token = Target.Ceye_Token
+		util.Ceye.Timeout = Target.Timeout
+		util.Ceye.Proxy = Target.Proxy
+		util.Ceye.Proxy_Url = Target.Proxy_Url
 	}()
 
 	func() {
@@ -237,7 +199,7 @@ func PocInit() {
 }
 
 // 扫描入口
-func Scan() {
+func Scan(vuln_type string) {
 	threads := 1
 	switch Target.Speed {
 	case 1:
@@ -288,64 +250,61 @@ func Scan() {
 	vuln_m := sync.Mutex{} // 用于同步目标的漏洞数
 
 	// 开始扫描
-	if xss_poc_all, ok := poc.PocMap["XSS"]; ok {
-		poc_list := poc_Array(xss_poc_all)
-		Scan_Num_True = Scan_Num_True + len(xss_poc_all)
-		for _, xss_poc_list := range poc_list {
-			wg.Add(1)
-			go XSS_Check(xss_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
+	xss := func() {
+		if xss_poc_all, ok := poc.PocMap["XSS"]; ok {
+			poc_list := poc_Array(xss_poc_all)
+			Scan_Num_True = Scan_Num_True + len(xss_poc_all)
+			for _, xss_poc_list := range poc_list {
+				wg.Add(1)
+				go XSS_Check(xss_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
+			}
+		}
+	}
+	info := func() {
+		if info_poc_all, ok := poc.PocMap["INFO"]; ok {
+			Scan_Num_True = Scan_Num_True + len(info_poc_all)
+			poc_list := poc_Array(info_poc_all)
+			for _, info_poc_list := range poc_list {
+				wg.Add(1)
+				go INFO_Check(info_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
+			}
 		}
 	}
 
-	if info_poc_all, ok := poc.PocMap["INFO"]; ok {
-		Scan_Num_True = Scan_Num_True + len(info_poc_all)
-		poc_list := poc_Array(info_poc_all)
-		for _, info_poc_list := range poc_list {
-			wg.Add(1)
-			go INFO_Check(info_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
+	ssrf := func() {
+		if ssrf_poc_all, ok := poc.PocMap["SSRF"]; ok {
+			Scan_Num_True = Scan_Num_True + len(ssrf_poc_all)
+			poc_list := poc_Array(ssrf_poc_all)
+			for _, ssrf_poc_list := range poc_list {
+				wg.Add(1)
+				go SSRF_Check(ssrf_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
+			}
 		}
 	}
 
-	if ssrf_poc_all, ok := poc.PocMap["SSRF"]; ok {
-		Scan_Num_True = Scan_Num_True + len(ssrf_poc_all)
-		poc_list := poc_Array(ssrf_poc_all)
-		for _, ssrf_poc_list := range poc_list {
-			wg.Add(1)
-			go SSRF_Check(ssrf_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
-		}
-	}
 	//fmt.Println("加载的poc数量是：", Scan_Num_True)
+
+	// 选择分支
+	switch vuln_type {
+	case "xss":
+		xss()
+
+	case "info":
+		info()
+
+	case "ssrf":
+		ssrf()
+
+	default:
+		xss()
+		info()
+		ssrf()
+	}
 
 	wg.Add(1)
 	go Scanning(&wg) // 开始进度条
 
 	wg.Wait() // 等待协程结束
-}
-
-// 生成http客户端
-func Http_Client(timeout int, proxy bool, proxy_url string) *http.Client {
-	// 设置请求属性
-	transport := &http.Transport{
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true}, // 取消证书认证
-		ResponseHeaderTimeout: time.Second * time.Duration(timeout),  // 设置超时时间
-	}
-
-	// 检查是否使用代理
-	if proxy && proxy_url != "" {
-		urli := url.URL{}
-		urlProxy, _ := urli.Parse(proxy_url)
-		transport.Proxy = http.ProxyURL(urlProxy) // 设置代理
-	}
-
-	// 生成http客户端
-	cli := &http.Client{
-		Transport: transport,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error { // 不进入重定向
-			return http.ErrUseLastResponse
-		},
-	}
-
-	return cli
 }
 
 // XSS检测函数
@@ -357,7 +316,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 	yellow := color.FgYellow.Render
 	red := color.FgRed.Render
 
-	cli := Http_Client(timeout, proxy, proxy_url)
+	cli := util.Http_Client(timeout, proxy, proxy_url)
 
 	for _, xss_poc := range xss_poc_all {
 		if xss_poc.Config.Customize { //判断是否是自定义poc
@@ -465,7 +424,7 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 	yellow := color.FgYellow.Render
 	red := color.FgRed.Render
 
-	cli := Http_Client(timeout, proxy, proxy_url)
+	cli := util.Http_Client(timeout, proxy, proxy_url)
 
 	for _, info_poc := range info_poc_all {
 		if info_poc.Config.Customize {
@@ -566,7 +525,7 @@ func SSRF_Check(ssrf_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 	yellow := color.FgYellow.Render
 	red := color.FgRed.Render
 
-	cli := Http_Client(timeout, proxy, proxy_url)
+	cli := util.Http_Client(timeout, proxy, proxy_url)
 
 	for _, ssrf_poc := range ssrf_poc_all {
 		rand.Seed(time.Now().UnixNano())
@@ -602,7 +561,7 @@ func SSRF_Check(ssrf_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 						continue
 					}
 					defer response.Body.Close()
-					success := Ceye_Check(randstr)
+					success := util.Ceye_Check(randstr)
 					if success {
 						vuln_m.Lock()
 						Target.Vulns = append(Target.Vulns, ssrf_poc)
@@ -638,7 +597,7 @@ func SSRF_Check(ssrf_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 						continue
 					}
 					defer response.Body.Close()
-					success := Ceye_Check(randstr)
+					success := util.Ceye_Check(randstr)
 					if success {
 						vuln_m.Lock()
 						color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(ssrf_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))

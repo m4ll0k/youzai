@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	"strings"
 	"time"
 	"youzai/active"
 	"youzai/report"
+	"youzai/util"
 
 	"github.com/gookit/color"
 )
@@ -60,16 +62,19 @@ func usage_info() {
 }
 
 // 执行扫描
-func active_Check() {
+func active_Check(vuln_type string) {
+	// 检查是否使用代理
 	if active.Target.Proxy {
-		active.Net_Check(active.Target.Proxy_Url)
+		if !util.Net_Check(active.Target.Proxy_Url) {
+			return
+		}
 	} else {
-		active.Net_Check(active.Target.Target_Url)
+		if !util.Net_Check(active.Target.Target_Url) {
+			return
+		}
 	}
-	if active.Can_Scan {
-		active.PocInit()
-		active.Scan()
-	}
+	active.PocInit()
+	active.Scan(vuln_type)
 }
 
 // 通过命令设置扫描参数信息
@@ -81,6 +86,7 @@ func config_info() {
 	var speed = flag.Int("speed", 1, "Config the scan speed")
 	var ceye_url = flag.String("ceye-url", "rp7vj6.ceye.io", "Cofig the ceye url, example:--ceye-url=example.ceye.io")
 	var ceye_token = flag.String("ceye-token", "9f5824c076d1a459e31266e8b016b591", "Config the ceye token, example:--ceye-token=abcdefg")
+	var vuln = flag.String("vuln", "all", "Config the vuln Type")
 	flag.Usage = usage_info
 	flag.Parse() // 注册
 
@@ -104,7 +110,7 @@ func config_info() {
 	active.Target.Ceye_Token = *ceye_token
 
 	banner_Info()
-	active_Check()
+	active_Check(strings.ToLower(*vuln))
 	report.OutTable()
 }
 
