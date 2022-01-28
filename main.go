@@ -1,10 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"os/exec"
-	"runtime"
-	"strings"
+	"flag"
 	"time"
 	"youzai/active"
 	"youzai/report"
@@ -39,55 +36,79 @@ func banner_Info() {
 	time.Sleep(time.Millisecond * 500)
 }
 
-// 生成目标信息
-func target_Info() {
-	url := "http://192.168.65.129:8080"
-	userAgent := "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.163 Safari/535.1"
+// 帮助信息
+func usage_info() {
+	banner_Info()
+	var h string = `Usage of YOUZAI [github:https://github.com/qian-shen/youzai]
 
-	active.Target.Target_Url = url
-	active.Target.User_Agent = userAgent
-	active.Target.Timeout = 5
-	active.Target.Proxy = true
-	active.Target.Proxy_Url = "http://127.0.0.1:8888"
-	active.Target.Speed = 1
-	active.Target.Ceye_Url = "rp7vj6.ceye.io"
-	active.Target.Ceye_Token = "9f5824c076d1a459e31266e8b016b591"
+--url:
+	设置需要扫描的url (Config the Scan Url)
+--agent:
+	设置请求的代理 (Config the User-Agent)
+--timeout:
+	设置请求的超时时间 (Config the request timeout)
+--proxy:
+	设置代理url，如：--proxy=http://proxy.com (目前仅支持http代理) (Config the http proxy)
+--speed:
+	设置扫描速度，有四个等级，1~4 (Config the scan speed)
+--ceye-rul:
+	设置ceye的域名，如：--ceye-url=example.ceye.io (Cofig the ceye url)
+--ceye-token:
+	设置ceye的token信息 (Config the ceye token)
+	`
+	color.Cyanln(h)
 }
 
 // 执行扫描
 func active_Check() {
-	active.PocInit()
-	active.Scan()
-}
-
-func config_Screen() {
-	os := runtime.GOOS
-	green := color.Green.Render
-	blue := color.Blue.Render
-	if strings.Contains(os, "windows") {
-		cmd := exec.Command("powershell", "mode con cols=135 lines=40")
-		err := cmd.Run()
-		if err != nil {
-			time.Sleep(time.Second)
-			fmt.Println(green("[INFO]"), "Screen Config Failed")
-		}
-		time.Sleep(time.Second)
-		fmt.Println(green("[INFO]"), blue("Screen Config Successful"))
-		time.Sleep(time.Second)
+	if active.Target.Proxy {
+		active.Net_Check(active.Target.Proxy_Url)
+	} else {
+		active.Net_Check(active.Target.Target_Url)
 	}
-	fmt.Println(green("[INFO]"), blue("Prepare For Running The Scan"))
-	time.Sleep(time.Second)
+	if active.Can_Scan {
+		active.PocInit()
+		active.Scan()
+	}
 }
 
-func check_Network() {
+// 通过命令设置扫描参数信息
+func config_info() {
+	var url = flag.String("url", "", "Config the Scan Url")
+	var user_agent = flag.String("agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.163 Safari/535.1", "Config the User-Agent")
+	var timeout = flag.Int("timeout", 20, "Config the request timeout")
+	var Proxy_Url = flag.String("proxy", "", "Config the http proxy")
+	var speed = flag.Int("speed", 1, "Config the scan speed")
+	var ceye_url = flag.String("ceye-url", "rp7vj6.ceye.io", "Cofig the ceye url, example:--ceye-url=example.ceye.io")
+	var ceye_token = flag.String("ceye-token", "9f5824c076d1a459e31266e8b016b591", "Config the ceye token, example:--ceye-token=abcdefg")
+	flag.Usage = usage_info
+	flag.Parse() // 注册
 
+	if *url == "" {
+		usage_info()
+		color.Println("<fg=FFA500>[WARNING]</>", "Please Config The Target Url")
+		return
+	}
+
+	active.Target.Target_Url = *url
+	active.Target.User_Agent = *user_agent
+	active.Target.Timeout = *timeout
+	if *Proxy_Url != "" {
+		active.Target.Proxy = true
+		active.Target.Proxy_Url = *Proxy_Url
+	} else {
+		active.Target.Proxy = false
+	}
+	active.Target.Speed = *speed
+	active.Target.Ceye_Url = *ceye_url
+	active.Target.Ceye_Token = *ceye_token
+
+	banner_Info()
+	active_Check()
+	report.OutTable()
 }
 
 // 扫描器入口
 func main() {
-	config_Screen()
-	banner_Info()
-	target_Info()
-	active_Check()
-	report.OutTable()
+	config_info()
 }

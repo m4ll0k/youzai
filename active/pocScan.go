@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -37,26 +38,49 @@ var Scan_Num float64 = 0 // 用于进度条计数
 
 var Scan_Num_True int = 0 // 用于计算真实扫描的poc数量
 
+var Can_Scan = false
+
+// 检测网络连通性
+func Net_Check(url string) {
+	green := color.FgGreen.Render
+	red := color.FgRed.Render
+	yellow := color.FgYellow.Render
+	var connect, start time.Time
+
+	request, _ := http.NewRequest("GET", url, nil)
+	trace := &httptrace.ClientTrace{
+		ConnectStart: func(network, addr string) { connect = time.Now() },
+		ConnectDone: func(network, addr string, err error) {
+			link_time := time.Since(connect)
+			if link_time >= time.Duration(time.Second*10) {
+				color.Println(green("[INFO]"), "Connect Time:", yellow(link_time))
+				color.Println("<fg=FFA500>[WARNING]</>", "The link to the url doesn't seem well")
+				color.Println("<fg=FFA500>[WARNING]</>", "Please check your network")
+			}
+			color.Println(green("[INFO]"), "Connect Time:", yellow(link_time))
+		},
+		GotFirstResponseByte: func() {
+			color.Println(green("[INFO]"), "Time from start to first byte:", yellow(time.Since(start)))
+		},
+	}
+	req := request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
+	start = time.Now()
+	if _, err := http.DefaultTransport.RoundTrip(req); err != nil {
+		color.Println(red("[ERROR]"), err)
+		return
+	} else {
+		Can_Scan = true
+	}
+}
+
 // 用于检测ssrf的函数
 func Ceye_Check(randstr string) bool {
 	cli := Http_Client(Target.Timeout, Target.Proxy, Target.Proxy_Url)
-
 	check_url := fmt.Sprintf("http://api.ceye.io/v1/records?token=%s&type=dns&filter=%s", Target.Ceye_Token, randstr)
-	request, err := http.NewRequest("GET", check_url, nil)
-	if err != nil {
-		return false
-	}
-
-	if response, err := cli.Do(request); err != nil {
-		return false
-	} else {
-		defer response.Body.Close()
-		body, _ := ioutil.ReadAll(response.Body)
-		if strings.Contains(string(body), randstr) {
-			return true
-		}
-	}
-	return false
+	request, _ := http.NewRequest("GET", check_url, nil)
+	response, _ := cli.Do(request)
+	body, _ := ioutil.ReadAll(response.Body)
+	return strings.Contains(string(body), randstr)
 }
 
 // 此函数适用于安全性
@@ -87,6 +111,7 @@ func Scanning(wg *sync.WaitGroup) {
 	green := color.FgGreen.Render
 	blue := color.FgBlue.Render
 	yellow := color.FgYellow.Render
+	cyan := color.FgCyan.Render
 	is_Stop := false
 	for {
 		if is_Stop {
@@ -96,7 +121,7 @@ func Scanning(wg *sync.WaitGroup) {
 		for i := 0; i < len(Scanning); i++ {
 			numtemp, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", float64(Scan_Num)/float64(Scan_Num_True)), 64)
 			num := int(numtemp * 50)
-			color.Print(green("[INFO]"), blue(Scanning[i]), yellow("  ["), strings.Repeat("=", num), strings.Repeat(" ", 50-num), yellow("]  "), int(numtemp*100), "%", "\r")
+			color.Print(green("[INFO]"), blue(Scanning[i]), yellow("  <["), cyan(strings.Repeat("■", num)), strings.Repeat(" ", 50-num), yellow("]>  "), int(numtemp*100), "%", "\r")
 			time.Sleep(time.Millisecond * 100)
 			if num == 50 {
 				after := time.Now().Unix()
@@ -330,6 +355,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 	lightRed := color.FgLightRed.Render
 	lightCyan := color.FgLightCyan.Render
 	yellow := color.FgYellow.Render
+	red := color.FgRed.Render
 
 	cli := Http_Client(timeout, proxy, proxy_url)
 
@@ -347,6 +373,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 				for i, path := range xss_poc.Poc.Path {
 					request, err := http.NewRequest(xss_poc.Poc.Method, Target.Target_Url+path, nil)
 					if err != nil {
+						color.Println(red("[ERROR]"), err)
 						continue
 					}
 					request.Header.Add("User-Agent", Target.User_Agent) // 设置User-Agent
@@ -356,6 +383,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 						}
 					}
 					if response, err := cli.Do(request); err != nil { // 发起http请求
+						color.Println(red("[ERROR]"), err)
 						continue
 					} else {
 						defer response.Body.Close()
@@ -365,7 +393,6 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 						if len(xss_poc.Poc.Word) > 1 {
 							word = xss_poc.Poc.Word[i]
 						}
-
 						if response.StatusCode != 404 && strings.Contains(string(body), word) {
 							vuln_m.Lock()
 							Target.Vulns = append(Target.Vulns, xss_poc)
@@ -387,6 +414,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 
 					request, err := http.NewRequest(xss_poc.Poc.Method, Target.Target_Url+path, strings.NewReader(data))
 					if err != nil {
+						color.Println(red("[ERROR]"), err)
 						continue
 					}
 					request.Header.Add("User-Agent", Target.User_Agent) // 设置User-Agent
@@ -396,6 +424,7 @@ func XSS_Check(xss_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url str
 						}
 					}
 					if response, err := cli.Do(request); err != nil { // 发起http请求
+						color.Println(red("[ERROR]"), err)
 						continue
 					} else {
 						defer response.Body.Close()
@@ -434,6 +463,7 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 	lightRed := color.FgLightRed.Render
 	lightCyan := color.FgLightCyan.Render
 	yellow := color.FgYellow.Render
+	red := color.FgRed.Render
 
 	cli := Http_Client(timeout, proxy, proxy_url)
 
@@ -451,6 +481,7 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 				for _, path := range info_poc.Poc.Path {
 					request, err := http.NewRequest(info_poc.Poc.Method, Target.Target_Url+path, nil)
 					if err != nil {
+						color.Println(red("[ERROR]"), err)
 						continue
 					}
 					request.Header.Add("User-Agent", Target.User_Agent) // 设置User-Agent
@@ -460,6 +491,7 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 						}
 					}
 					if response, err := cli.Do(request); err != nil { // 发起http请求
+						color.Println(red("[ERROR]"), err)
 						continue
 					} else {
 						defer response.Body.Close()
@@ -484,9 +516,9 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 					if len(info_poc.Poc.Data) > 1 {
 						data = info_poc.Poc.Data[i]
 					}
-
 					request, err := http.NewRequest(info_poc.Poc.Method, Target.Target_Url+path, strings.NewReader(data))
 					if err != nil {
+						color.Println(red("[ERROR]"), err)
 						continue
 					}
 					request.Header.Add("User-Agent", Target.User_Agent) // 设置User-Agent
@@ -496,6 +528,7 @@ func INFO_Check(info_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 						}
 					}
 					if response, err := cli.Do(request); err != nil { // 发起http请求
+						color.Println(red("[ERROR]"), err)
 						continue
 					} else {
 						defer response.Body.Close()
@@ -531,15 +564,15 @@ func SSRF_Check(ssrf_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 	lightRed := color.FgLightRed.Render
 	lightCyan := color.FgLightCyan.Render
 	yellow := color.FgYellow.Render
-
-	rand.Seed(time.Now().UnixNano())
-	t := rand.Intn(100000)
-	randstr := fmt.Sprintf("%d", t)
-	ceye_url := randstr + "." + Target.Ceye_Url
+	red := color.FgRed.Render
 
 	cli := Http_Client(timeout, proxy, proxy_url)
 
 	for _, ssrf_poc := range ssrf_poc_all {
+		rand.Seed(time.Now().UnixNano())
+		t := rand.Intn(100000)
+		randstr := fmt.Sprintf("%d", t)
+		ceye_url := randstr + "." + Target.Ceye_Url
 		if ssrf_poc.Config.Customize {
 			check := ssrf_poc.Config.Check
 			if success, code := check(); success {
@@ -554,6 +587,7 @@ func SSRF_Check(ssrf_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 					ssrf_url := strings.Replace(path, "{{SSRF_URL}}", ceye_url, -1)
 					request, err := http.NewRequest(ssrf_poc.Poc.Method, Target.Target_Url+ssrf_url, nil)
 					if err != nil {
+						color.Println(red("[ERROR]"), err)
 						continue
 					}
 					request.Header.Add("User-Agent", Target.User_Agent) // 设置User-Agent
@@ -562,19 +596,21 @@ func SSRF_Check(ssrf_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 							request.Header.Add(header, value)
 						}
 					}
-					if response, err := cli.Do(request); err != nil { // 发起http请求
+					response, err := cli.Do(request) // 发起http请求
+					if err != nil {
+						color.Println(red("[ERROR]"), err)
 						continue
+					}
+					defer response.Body.Close()
+					success := Ceye_Check(randstr)
+					if success {
+						vuln_m.Lock()
+						Target.Vulns = append(Target.Vulns, ssrf_poc)
+						color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(ssrf_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
+						vuln_m.Unlock()
+						break
 					} else {
-						defer response.Body.Close()
-						if Ceye_Check(randstr) {
-							vuln_m.Lock()
-							Target.Vulns = append(Target.Vulns, ssrf_poc)
-							color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(ssrf_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
-							vuln_m.Unlock()
-							break
-						} else {
-							continue
-						}
+						continue
 					}
 				}
 			} else if ssrf_poc.Poc.Method == "POST" { // POST方法
@@ -587,6 +623,7 @@ func SSRF_Check(ssrf_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 					ssrf_data := strings.Replace(data, "{{SSRF_URL}}", ceye_url, -1)
 					request, err := http.NewRequest(ssrf_poc.Poc.Method, Target.Target_Url+path, strings.NewReader(ssrf_data))
 					if err != nil {
+						color.Println(red("[ERROR]"), err)
 						continue
 					}
 					request.Header.Add("User-Agent", Target.User_Agent) // 设置User-Agent
@@ -595,19 +632,21 @@ func SSRF_Check(ssrf_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 							request.Header.Add(header, value)
 						}
 					}
-					if response, err := cli.Do(request); err != nil { // 发起http请求
+					response, err := cli.Do(request) // 发起http请求
+					if err != nil {
+						color.Println(red("[ERROR]"), err)
 						continue
+					}
+					defer response.Body.Close()
+					success := Ceye_Check(randstr)
+					if success {
+						vuln_m.Lock()
+						color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(ssrf_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
+						fmt.Println("[INFO] hit some poc")
+						vuln_m.Unlock()
+						break
 					} else {
-						defer response.Body.Close()
-						if Ceye_Check(randstr) {
-							vuln_m.Lock()
-							color.Println(green("[INFO]"), lightCyan("Find a vulnerability name of"), "{", lightRed(ssrf_poc.Info.Name), "}", lightCyan("[Code]"), "=>", yellow(response.StatusCode), strings.Repeat(" ", 25))
-							fmt.Println("[INFO] hit some poc")
-							vuln_m.Unlock()
-							break
-						} else {
-							continue
-						}
+						continue
 					}
 				}
 			} else {
