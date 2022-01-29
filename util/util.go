@@ -91,13 +91,13 @@ func Net_Check(url string) bool {
 			}
 		},
 		GotFirstResponseByte: func() {
-			color.Println(green("[INFO]"), "Time from start to first byte:", yellow(time.Since(start)))
+			color.Println(green("[INFO]"), "Response Time :", yellow(time.Since(start)))
 		},
 	}
 	req := request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
 	start = time.Now()
 	if _, err := http.DefaultTransport.RoundTrip(req); err != nil {
-		color.Println(red("[ERROR]"), err)
+		color.Println(red("[ERROR]"), err, strings.Repeat(" ", 50))
 		return false
 	} else {
 		return true

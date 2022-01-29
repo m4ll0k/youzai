@@ -57,6 +57,8 @@ func usage_info() {
 	设置ceye的域名，如：--ceye-url=example.ceye.io (Cofig the ceye url)
 --ceye-token:
 	设置ceye的token信息 (Config the ceye token)
+--vuln:
+	设置扫描的漏洞类型，如：--vuln=xss (xss/info/ssrf)
 	`
 	color.Cyanln(h)
 }
@@ -106,7 +108,11 @@ func config_info() {
 		active.Target.Proxy = false
 		active.Target.Proxy_Url = ""
 	}
-	active.Target.Speed = *speed
+	if *speed > 4 || *speed <= 0 {
+		active.Target.Speed = 1
+	} else {
+		active.Target.Speed = *speed
+	}
 	active.Target.Ceye_Url = *ceye_url
 	active.Target.Ceye_Token = *ceye_token
 
