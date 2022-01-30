@@ -2,6 +2,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
+	"os/signal"
 	"strings"
 	"time"
 	"youzai/active"
@@ -63,6 +66,16 @@ func usage_info() {
 	color.Cyanln(h)
 }
 
+func active_interrupt() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	sig := <-sigChan
+	_ = sig
+	fmt.Println()
+	color.Println("<fg=DC143C>[EXIT]</>", "<fg=FFFF00>The Scan Stop Because Of User Interrupt</>")
+	os.Exit(0)
+}
+
 // 执行扫描
 func active_Check(vuln_type string) {
 	// 检查是否使用代理
@@ -118,5 +131,6 @@ func config_info() {
 
 // 扫描器入口
 func main() {
+	go active_interrupt()
 	config_info()
 }

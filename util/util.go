@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +27,15 @@ type Ceye_Info struct {
 }
 
 var Ceye = Ceye_Info{}
+
+// 获取ceye随机数和域名
+func Get_Ceye() (randstr, ceye_url string) {
+	rand.Seed(time.Now().UnixNano())
+	t := rand.Intn(100000)
+	randstr = fmt.Sprintf("%d", t)
+	ceye_url = randstr + "." + Ceye.Ceye_Url
+	return randstr, ceye_url
+}
 
 // 用于检测ssrf的函数
 func Ceye_Check(randstr string) bool {
@@ -71,6 +83,63 @@ func Http_Client(timeout int, proxy bool, proxy_url string) *http.Client {
 	return cli
 }
 
+// 使用tcp发送数据
+func Tcp_Send(target_url string, data string, timeout int) (response_data string, response_code int) {
+	reg := regexp.MustCompile(`.*(\d{3}).*`)
+	urli := url.URL{}
+	url, _ := urli.Parse(target_url)
+	switch url.Scheme {
+	case "http":
+		var host = url.Host
+		if !strings.Contains(host, ":") {
+			host = url.Host + ":80"
+		}
+		net, err := net.DialTimeout("tcp", host, time.Second*time.Duration(timeout))
+		if err != nil {
+			color.Println("<fg=FFA500>[WARNING]</>", err)
+		}
+		defer net.Close()
+		_, _ = net.Write([]byte(data))
+		buf := make([]byte, 20480)
+		n, err := net.Read(buf)
+		if err != nil {
+			color.Println("<fg=FFA500>[WARNING]</>", err)
+		}
+		result := reg.FindStringSubmatch(string(buf[:n]))
+		if len(result) != 0 {
+			code, _ := strconv.Atoi(result[len(result)-1])
+			return string(buf[:n]), code
+		}
+		return "", 0
+
+	case "https":
+		conf := &tls.Config{
+			InsecureSkipVerify: false,
+		}
+		var host = url.Host
+		if !strings.Contains(host, ":") {
+			host = url.Host + ":443"
+		}
+		net, err := tls.Dial("tcp", host, conf)
+		if err != nil {
+			color.Println("<fg=FFA500>[WARNING]</>", err)
+		}
+		defer net.Close()
+		_, _ = net.Write([]byte(data))
+		buf := make([]byte, 20480)
+		n, err := net.Read(buf)
+		if err != nil {
+			color.Println("<fg=FFA500>[WARNING]</>", err)
+		}
+		result := reg.FindStringSubmatch(string(buf[:n]))
+		if len(result) != 0 {
+			code, _ := strconv.Atoi(result[len(result)-1])
+			return string(buf[:n]), code
+		}
+	}
+	return "", 0
+}
+
 // 检测网络连通性
 func Net_Check(url string) bool {
 	green := color.FgGreen.Render
@@ -103,12 +172,4 @@ func Net_Check(url string) bool {
 	} else {
 		return true
 	}
-}
-
-func Get_Ceye() (randstr, ceye_url string) {
-	rand.Seed(time.Now().UnixNano())
-	t := rand.Intn(100000)
-	randstr = fmt.Sprintf("%d", t)
-	ceye_url = randstr + "." + Ceye.Ceye_Url
-	return randstr, ceye_url
 }

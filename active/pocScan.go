@@ -88,7 +88,6 @@ func Scanning_Panel(wg *sync.WaitGroup) {
 	green := color.FgGreen.Render
 	blue := color.FgBlue.Render
 	yellow := color.FgYellow.Render
-	cyan := color.FgCyan.Render
 	is_Stop := false
 	for {
 		if is_Stop {
@@ -98,7 +97,7 @@ func Scanning_Panel(wg *sync.WaitGroup) {
 		for i := 0; i < len(Scanning); i++ {
 			numtemp, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", float64(Scan_Num)/float64(Scan_Num_True)), 64)
 			num := int(numtemp * 50)
-			color.Print(green("[INFO]"), blue(Scanning[i]), yellow("  <["), cyan(strings.Repeat("■", num)), strings.Repeat(" ", 50-num), yellow("]>  "), int(numtemp*100), "%", "\r")
+			color.Print(green("[INFO]"), blue(Scanning[i]), yellow("  <["), strings.Repeat("<fg=00FFFF>■</>", num), strings.Repeat(" ", 50-num), yellow("]>  "), int(numtemp*100), "%", "\r")
 			time.Sleep(time.Millisecond * 100)
 			if num == 50 {
 				after := time.Now().Unix()
