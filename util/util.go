@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -102,4 +103,12 @@ func Net_Check(url string) bool {
 	} else {
 		return true
 	}
+}
+
+func Get_Ceye() (randstr, ceye_url string) {
+	rand.Seed(time.Now().UnixNano())
+	t := rand.Intn(100000)
+	randstr = fmt.Sprintf("%d", t)
+	ceye_url = randstr + "." + Ceye.Ceye_Url
+	return randstr, ceye_url
 }

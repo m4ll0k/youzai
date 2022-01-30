@@ -75,8 +75,8 @@ func active_Check(vuln_type string) {
 			return
 		}
 	}
-	active.PocInit()
 	active.Scan(vuln_type)
+	report.OutTable()
 }
 
 // 通过命令设置扫描参数信息
@@ -108,17 +108,12 @@ func config_info() {
 		active.Target.Proxy = false
 		active.Target.Proxy_Url = ""
 	}
-	if *speed > 4 || *speed <= 0 {
-		active.Target.Speed = 1
-	} else {
-		active.Target.Speed = *speed
-	}
+	active.Target.Speed = *speed
 	active.Target.Ceye_Url = *ceye_url
 	active.Target.Ceye_Token = *ceye_token
 
 	banner_Info()
 	active_Check(strings.ToLower(*vuln))
-	report.OutTable()
 }
 
 // 扫描器入口

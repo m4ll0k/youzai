@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
-	"math/rand"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -36,8 +35,54 @@ var Scan_Num float64 = 0 // 用于进度条计数
 
 var Scan_Num_True int = 0 // 用于计算真实扫描的poc数量
 
-// 扫描提示语
-func Scanning(wg *sync.WaitGroup) {
+// 用于显示漏洞数量的面板
+func Poc_Panel() {
+	// 用于存储漏洞等级数量，主要作用是终端显示
+	type Vuln_Level_Num struct {
+		Low_Risk    int
+		Medium_Risk int
+		High_Risk   int
+		Critical    int
+	}
+	var Vuln_Level_Info = &Vuln_Level_Num{} // 实例化一个用于存储漏洞等级的结构体
+	l_vuln := 0
+	m_vuln := 0
+	h_vuln := 0
+	c_vuln := 0
+	gary := color.Gray.Render
+	green := color.Green.Render
+	blue := color.Blue.Render
+	red := color.Red.Render
+	cyan := color.FgCyan.Render
+	for _, pocStruct := range poc.PocStruct {
+		var level = pocStruct.Info.Level
+		switch level {
+		case 0:
+			c_vuln++
+
+		case 1:
+			h_vuln++
+
+		case 2:
+			m_vuln++
+
+		case 3:
+			l_vuln++
+
+		default:
+			continue
+		}
+	}
+	Vuln_Level_Info.Low_Risk = l_vuln
+	Vuln_Level_Info.Medium_Risk = m_vuln
+	Vuln_Level_Info.High_Risk = h_vuln
+	Vuln_Level_Info.Critical = c_vuln
+	color.Println(green("[INFO]"), cyan("POC Total Panel ["), gary("Low•", Vuln_Level_Info.Low_Risk), green("      Medium•", Vuln_Level_Info.Medium_Risk), blue("      High•", Vuln_Level_Info.High_Risk), red("      Critical•", Vuln_Level_Info.Critical), cyan("]"))
+	time.Sleep(time.Second * 1)
+}
+
+// 用于显示扫描进度
+func Scanning_Panel(wg *sync.WaitGroup) {
 	before := time.Now().Unix()
 	Scanning := []string{" scanning  |", " Scanning  /", " sCanning  -", " scAnning  \\", " scaNning  |", " scanNing  /", " scannIng  -", " scanniNg  \\", " scanninG  |", " scanning  /", " scanning  -", " scanning  \\"}
 	green := color.FgGreen.Render
@@ -68,8 +113,55 @@ func Scanning(wg *sync.WaitGroup) {
 	}
 }
 
+// 用于生成多线程列表
+func Poc_Array(poc_all []poc.PocInfo) [][]poc.PocInfo {
+	threads := 1
+	switch Target.Speed {
+	case 1:
+		threads = 1
+
+	case 2:
+		threads = 5
+
+	case 3:
+		threads = 10
+
+	case 4:
+		threads = 20
+
+	default:
+		threads = 1
+	}
+
+	i := 0                        // 用于读取计数
+	scan_thread := 1              // 扫描的线程
+	poc_list := [][]poc.PocInfo{} // poc分组
+	temp := []poc.PocInfo{}       //临时存储各个分组的poc
+
+	if len(poc_all) <= threads {
+		scan_thread = len(poc_all)
+	} else {
+		scan_thread = threads
+	}
+	one_thread_num := int(math.Ceil(float64(len(poc_all)) / float64(scan_thread)))
+	for _, poc_temp := range poc_all {
+		i++
+		if i%one_thread_num == 0 {
+			temp = append(temp, poc_temp)
+			poc_list = append(poc_list, temp)
+			temp = []poc.PocInfo{}
+		} else if i == len(poc_all) {
+			temp = append(temp, poc_temp)
+			poc_list = append(poc_list, temp)
+		} else {
+			temp = append(temp, poc_temp)
+		}
+	}
+	return poc_list // 返回线程列表
+}
+
 // 此函数用于生成所有poc
-func PocInit() {
+func Poc_Init() {
 	// 设置自定义poc的配置
 	func() {
 		poc.PocCustomize.Config.Url = Target.Target_Url
@@ -129,99 +221,12 @@ func PocInit() {
 			poc.PocMap["OTHER"] = append(poc.PocMap["OTHER"], pocStruct)
 		}
 	}
-
-	func() {
-		// 用于存储漏洞等级数量，主要作用是终端显示
-		type Vuln_Level_Num struct {
-			Low_Risk    int
-			Medium_Risk int
-			High_Risk   int
-			Critical    int
-		}
-		var Vuln_Level_Info = &Vuln_Level_Num{} // 实例化一个用于存储漏洞等级的结构体
-		l_vuln := 0
-		m_vuln := 0
-		h_vuln := 0
-		c_vuln := 0
-		gary := color.Gray.Render
-		green := color.Green.Render
-		blue := color.Blue.Render
-		red := color.Red.Render
-		cyan := color.FgCyan.Render
-		for _, pocStruct := range poc.PocStruct {
-			var level = pocStruct.Info.Level
-			switch level {
-			case 0:
-				c_vuln++
-
-			case 1:
-				h_vuln++
-
-			case 2:
-				m_vuln++
-
-			case 3:
-				l_vuln++
-
-			default:
-				continue
-			}
-		}
-		Vuln_Level_Info.Low_Risk = l_vuln
-		Vuln_Level_Info.Medium_Risk = m_vuln
-		Vuln_Level_Info.High_Risk = h_vuln
-		Vuln_Level_Info.Critical = c_vuln
-		color.Println(green("[INFO]"), cyan("POC Total Panel ["), gary("Low•", Vuln_Level_Info.Low_Risk), green("      Medium•", Vuln_Level_Info.Medium_Risk), blue("      High•", Vuln_Level_Info.High_Risk), red("      Critical•", Vuln_Level_Info.Critical), cyan("]"))
-		time.Sleep(time.Second * 1)
-	}()
 }
 
 // 扫描入口
 func Scan(vuln_type string) {
-	threads := 1
-	switch Target.Speed {
-	case 1:
-		threads = 1
-
-	case 2:
-		threads = 5
-
-	case 3:
-		threads = 10
-
-	case 4:
-		threads = 20
-
-	default:
-		threads = 1
-	}
-
-	poc_Array := func(poc_all []poc.PocInfo) [][]poc.PocInfo {
-		i := 0                        // 用于读取计数
-		scan_thread := 1              // 扫描的线程
-		poc_list := [][]poc.PocInfo{} // poc分组
-		temp := []poc.PocInfo{}       //临时存储各个分组的poc
-		if len(poc_all) <= threads {
-			scan_thread = len(poc_all)
-		} else {
-			scan_thread = threads
-		}
-		one_thread_num := int(math.Ceil(float64(len(poc_all)) / float64(scan_thread)))
-		for _, poc_temp := range poc_all {
-			i++
-			if i%one_thread_num == 0 {
-				temp = append(temp, poc_temp)
-				poc_list = append(poc_list, temp)
-				temp = []poc.PocInfo{}
-			} else if i == len(poc_all) {
-				temp = append(temp, poc_temp)
-				poc_list = append(poc_list, temp)
-			} else {
-				temp = append(temp, poc_temp)
-			}
-		}
-		return poc_list // 返回线程列表
-	}
+	Poc_Init()  // 生成poc
+	Poc_Panel() // 显示poc面板
 
 	wg := sync.WaitGroup{} // 用于等待协程
 	num_m := sync.Mutex{}  // 用于同步已扫描的漏洞数
@@ -230,7 +235,7 @@ func Scan(vuln_type string) {
 	// 开始扫描
 	xss := func() {
 		if xss_poc_all, ok := poc.PocMap["XSS"]; ok {
-			poc_list := poc_Array(xss_poc_all)
+			poc_list := Poc_Array(xss_poc_all)
 			Scan_Num_True = Scan_Num_True + len(xss_poc_all)
 			for _, xss_poc_list := range poc_list {
 				wg.Add(1)
@@ -238,10 +243,11 @@ func Scan(vuln_type string) {
 			}
 		}
 	}
+
 	info := func() {
 		if info_poc_all, ok := poc.PocMap["INFO"]; ok {
 			Scan_Num_True = Scan_Num_True + len(info_poc_all)
-			poc_list := poc_Array(info_poc_all)
+			poc_list := Poc_Array(info_poc_all)
 			for _, info_poc_list := range poc_list {
 				wg.Add(1)
 				go INFO_Check(info_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
@@ -252,7 +258,7 @@ func Scan(vuln_type string) {
 	ssrf := func() {
 		if ssrf_poc_all, ok := poc.PocMap["SSRF"]; ok {
 			Scan_Num_True = Scan_Num_True + len(ssrf_poc_all)
-			poc_list := poc_Array(ssrf_poc_all)
+			poc_list := Poc_Array(ssrf_poc_all)
 			for _, ssrf_poc_list := range poc_list {
 				wg.Add(1)
 				go SSRF_Check(ssrf_poc_list, Target.Timeout, Target.Proxy, Target.Proxy_Url, &wg, &num_m, &vuln_m)
@@ -280,7 +286,7 @@ func Scan(vuln_type string) {
 	}
 
 	wg.Add(1)
-	go Scanning(&wg) // 开始进度条
+	go Scanning_Panel(&wg) // 开始进度条
 
 	wg.Wait() // 等待协程结束
 }
@@ -506,10 +512,7 @@ func SSRF_Check(ssrf_poc_all []poc.PocInfo, timeout int, proxy bool, proxy_url s
 	cli := util.Http_Client(timeout, proxy, proxy_url)
 
 	for _, ssrf_poc := range ssrf_poc_all {
-		rand.Seed(time.Now().UnixNano())
-		t := rand.Intn(100000)
-		randstr := fmt.Sprintf("%d", t)
-		ceye_url := randstr + "." + Target.Ceye_Url
+		randstr, ceye_url := util.Get_Ceye()
 		if ssrf_poc.Config.Customize {
 			check := ssrf_poc.Config.Check
 			if success, code := check(); success {
